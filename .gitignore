@@ -1,0 +1,11 @@
+# Datos reales de Racafé: NUNCA al repositorio público
+data/real/*
+!data/real/README.md
+outputs/real/
+*.xls
+*.xlsx
+# R
+.Rhistory
+.RData
+.Rproj.user/
+reports/*_files/
