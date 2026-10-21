@@ -1,0 +1,96 @@
+---
+title: "Costo del retraso en la disponibilidad de datos ambientales — Racafé"
+subtitle: "Informe reproducible (OE4). Resultados sobre DATOS SINTÉTICOS"
+output:
+  html_document:
+    toc: true
+    theme: flatly
+params:
+  salida: "../outputs/sintetico"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(ggplot2); library(dplyr); library(readr)
+rd <- function(f) read_csv(file.path(params$salida, f), show_col_types = FALSE)
+ctl <- rd("oe1_control.csv")
+cop <- function(x) format(round(x / 1e6), big.mark = ".", decimal.mark = ",")
+```
+
+> **Aviso.** Las cifras de este informe se calculan sobre mediciones y lotes
+> **sintéticos** (etiqueta: `r ctl$etiqueta`). Demuestran que el método funciona de punta a punta;
+> **no son hallazgos sobre Racafé**. Con datos reales el mismo código se ejecuta en local
+> (ver README) y sus salidas no se publican.
+
+## OE1. Frecuencia y duración de alarmas
+
+```{r}
+ctl |> transmute(Lecturas = n_lecturas, Bodegas = n_bodegas,
+                 `% alarma amplia` = round(100 * pct_alarma_amplia, 1),
+                 `% evento crítico` = round(100 * pct_evento_critico, 1),
+                 `Episodios críticos` = n_episodios) |> knitr::kable()
+```
+
+Con la definición amplia (cualquier lectura fuera de la zona segura) casi todas las horas son
+"alarma" y no hay eventos separables; por eso el modelo usa **eventos críticos** (GPP saturado,
+temperatura alta o riesgo de condensación).
+
+```{r}
+rd("oe1_alarmas_por_sede.csv") |>
+  mutate(across(starts_with("pct_"), ~ round(100 * .x, 1))) |> knitr::kable()
+```
+
+```{r fig.height=3.5}
+d <- rd("oe1_duracion_por_bodega.csv")
+ggplot(d, aes(sede_codigo, dur_mediana_h)) + geom_boxplot(fill = "#9fb7d4") +
+  labs(x = "Trilladora", y = "Duración mediana de eventos (h)") + theme_minimal()
+```
+
+Ajuste de la duración (menor AIC es mejor):
+
+```{r}
+knitr::kable(rd("oe1_ajuste_duracion.csv"), digits = 2)
+```
+
+## OE2. Severidad y pérdida agregada (esquema semanal)
+
+```{r}
+m <- rd("oe2_modelo_severidad.csv")
+```
+
+Severidad: `pct_rebaja = min(`r m$tope`, k · horas sin corregir)`, con k = `r format(m$k, digits = 3, scientific = FALSE)`
+(R² = `r round(m$r2, 3)`, n = `r m$n` lotes con exposición).
+
+## OE3. Comparación de esquemas de actualización
+
+```{r}
+r <- rd("oe2_oe3_riesgo_por_esquema.csv")
+r |> transmute(Esquema = esquema, `Media (M COP)` = cop(media), `VaR 95% (M COP)` = cop(VaR),
+               `CVaR 95% (M COP)` = cop(CVaR),
+               `IC95% CVaR (M COP)` = paste0(cop(CVaR_ic_inf), " – ", cop(CVaR_ic_sup)),
+               `Reducción CVaR (%)` = round(reduccion_CVaR_pct, 1)) |> knitr::kable()
+```
+
+```{r fig.height=3.5}
+r$esquema <- factor(r$esquema, c("semanal", "diaria", "tiempo_real"))
+ggplot(r, aes(esquema, CVaR / 1e6)) + geom_col(fill = "#5b8bb5") +
+  geom_errorbar(aes(ymin = CVaR_ic_inf / 1e6, ymax = CVaR_ic_sup / 1e6), width = .2) +
+  labs(x = NULL, y = "CVaR 95 % (millones COP / año)") + theme_minimal()
+```
+
+### Sensibilidad a supuestos
+
+```{r}
+rd("oe3_sensibilidad.csv") |>
+  filter(esquema != "semanal") |>
+  transmute(beta, `respuesta (h)` = respuesta_h, esquema,
+            `Reducción CVaR (%)` = round(reduccion_CVaR_pct, 1)) |> knitr::kable()
+```
+
+La conclusión cualitativa (menos latencia ⇒ menos riesgo de cola) se sostiene en todos los
+supuestos; la **magnitud** depende del tiempo de respuesta y de la forma de la severidad, que
+solo los datos reales de rebajas pueden fijar.
+
+## Supuestos
+
+Ver `README.md` y `R/00_config.R`. Cada supuesto está en un solo lugar y es editable.
