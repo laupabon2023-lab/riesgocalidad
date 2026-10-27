@@ -87,6 +87,27 @@ rd("oe3_sensibilidad.csv") |>
             `Reducción CVaR (%)` = round(reduccion_CVaR_pct, 1)) |> knitr::kable()
 ```
 
+### Escenarios de severidad
+
+Tres escenarios que cambian solo supuestos (ver `R/escenarios.R`): **optimista** (rebaja por
+hora a la mitad, tope 15 %, respuesta en 1 h), **base** y **pesimista** (rebaja 1,5 veces,
+respuesta en 12 h).
+
+```{r}
+e <- rd("oe3_escenarios.csv")
+e$escenario <- factor(e$escenario, c("optimista", "base", "pesimista"))
+e |> transmute(escenario, esquema,
+               `Media (M COP)` = cop(media), `CVaR 95 % (M COP)` = cop(CVaR),
+               `Reducción CVaR (%)` = round(reduccion_CVaR_pct, 1)) |> knitr::kable()
+```
+
+```{r fig.height=3.5}
+e$esquema <- factor(e$esquema, c("semanal", "diaria", "tiempo_real"))
+ggplot(e, aes(esquema, CVaR / 1e6, fill = escenario)) + geom_col(position = "dodge") +
+  scale_fill_manual(values = c(optimista = "#8fbf9f", base = "#5b8bb5", pesimista = "#c98a6b")) +
+  labs(x = NULL, y = "CVaR 95 % (millones COP / año)") + theme_minimal()
+```
+
 La conclusión cualitativa (menos latencia ⇒ menos riesgo de cola) se sostiene en todos los
 supuestos; la **magnitud** depende del tiempo de respuesta y de la forma de la severidad, que
 solo los datos reales de rebajas pueden fijar.

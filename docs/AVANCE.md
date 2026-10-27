@@ -31,11 +31,21 @@ implementación y verificación, no resultados sobre Racafé: esos están en 0 %
 
 ## Validación con datos sintéticos
 
-- Recuperación de parámetros: el ajuste devuelve k = 5,03·10⁻⁴ frente al valor
-  verdadero 5·10⁻⁴ (R² = 0,956).
-- Consistencia: la media anual simulada (1.109 M COP) coincide en ~2 % con la rebaja
-  observada anualizada de los lotes sintéticos (1.134 M COP).
+- Recuperación de parámetros: el ajuste devuelve k = 5,02·10⁻⁴ frente al valor
+  verdadero 5·10⁻⁴ (R² = 0,960).
+- Consistencia: la media anual simulada (1.248 M COP) coincide en ~6 % con la rebaja
+  observada anualizada de los lotes sintéticos (1.332 M COP).
 - Los esquemas se ordenan como se espera (semanal ≥ diaria ≥ tiempo real) en todas las
   combinaciones de supuestos probadas.
 Estas pruebas validan que el código hace lo que dice; **no** validan los supuestos del
 modelo con datos reales.
+
+## Calibración de la simulación y escenarios
+
+- La simulación de mediciones se calibró para que la proporción de lecturas críticas
+  (29 %) y en alarma amplia (84 %) fuera del orden de lo observado en local (28 % y
+  94 %). Solo se usaron esas dos proporciones agregadas; no se copió ningún dato
+  individual. Incluye estacionalidad (lluvias abril–junio) y heterogeneidad entre sedes.
+- `oe3_escenarios.csv` reporta tres escenarios de severidad (optimista, base, pesimista).
+  CVaR 95 % semanal: 649, 1.315 y 2.041 M COP; la reducción pasando a tiempo real va de
+  30 % (pesimista) a 83 % (optimista). Son supuestos, no estimaciones sobre Racafé.

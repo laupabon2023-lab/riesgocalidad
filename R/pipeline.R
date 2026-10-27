@@ -76,6 +76,10 @@ ejecutar_pipeline <- function(ruta_mediciones, ruta_lotes, dir_salida,
     sens[[length(sens) + 1]] <- rb
   }
   guardar(bind_rows(sens), "oe3_sensibilidad.csv")
+  say("[OE3] Escenarios de severidad (optimista / base / pesimista)")
+  guardar(correr_escenarios(lotes_exp, ep, lotes, ocup, freq, nb$size,
+                            n_sim = min(n_sim, 3000), semilla = semilla),
+          "oe3_escenarios.csv")
   say("Listo. Salidas en ", dir_salida)
   invisible(list(control = control, modelo = modelo, riesgo = riesgo, episodios = ep, tot = tot))
 }

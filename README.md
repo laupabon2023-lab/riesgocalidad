@@ -35,7 +35,7 @@ Salida en `outputs/real/` (ignorada por Git).
 Evento = racha de horas críticas (GPP > 100, T > 28 °C o T − T. rocío ≤ 2 °C). Horas sin
 corregir = mín(duración, espera hasta el próximo refresco + 4 h de respuesta). Rebaja =
 mín(25 %, k·horas), k ajustado por mínimos cuadrados. Esquemas: semanal (lunes 08:00),
-diaria (08:00), tiempo real (latencia 1 h). Sensibilidad en `outputs/sintetico/oe3_sensibilidad.csv`.
+diaria (08:00), tiempo real (latencia 1 h). Sensibilidad en `oe3_sensibilidad.csv` y escenarios optimista/base/pesimista en `oe3_escenarios.csv` (carpeta `outputs/sintetico/`).
 
 ## Pendiente (requiere a Racafé)
 1. Lotes con rebajas reales y mapa logger → bodega (OE2–OE4 con datos reales).
