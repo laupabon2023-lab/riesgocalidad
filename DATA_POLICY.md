@@ -10,3 +10,6 @@
   `scripts/run_all.R` con variables de entorno; escribe en `outputs/real/`, que Git
   ignora. Resultados reales solo se publican con autorización escrita.
 - Ninguna herramienta de IA en la nube recibe datos reales de Racafé.
+- El **modo híbrido** (`scripts/run_hibrido.R`) mezcla mediciones reales con lotes, rebajas
+  y operación simulados. Sus salidas (`outputs/real/`, `data/real/`) también se mantienen
+  fuera del repositorio y deben rotularse "operación simulada" si se muestran.

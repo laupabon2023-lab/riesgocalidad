@@ -31,6 +31,21 @@ RACAFE_MEDICIONES=/ruta/mediciones.csv RACAFE_LOTES=/ruta/lotes.csv Rscript scri
 ```
 Salida en `outputs/real/` (ignorada por Git).
 
+## Modo híbrido (solo local): mediciones reales + operación simulada
+Racafé aún no entrega lotes, rebajas ni información operativa. Mientras tanto, estos tres
+se **simulan** sobre las mediciones reales (`data-raw/simular_operacion.R`):
+- *Operación:* tiempo de respuesta lognormal por sede (mediana 3–12 h) y demora ocasional de 48 h.
+- *Lotes:* estancias de ~12 días por bodega, con peso, variedad y precio.
+- *Rebajas:* curva no lineal y saturada de las horas sin corregir bajo esa operación, ruido
+  y ~12 % de rebajas por otras causas no ambientales. A diferencia de `simular_lotes.R`,
+  la rebaja **no** se genera con el mismo modelo que luego se ajusta.
+```sh
+RACAFE_MEDICIONES=/ruta/mediciones.csv Rscript scripts/run_hibrido.R   # salidas en outputs/real/ (ignorada)
+```
+Con datos reales se trabaja a nivel **sede**, excluyendo sensores exteriores (`R/operacion.R`),
+porque los nombres de logger son inconsistentes y no hay mapa logger → bodega. Las cifras
+resultantes combinan datos reales con supuestos simulados: **no son hallazgos sobre Racafé**.
+
 ## Supuestos del modelo
 Evento = racha de horas críticas (GPP > 100, T > 28 °C o T − T. rocío ≤ 2 °C). Horas sin
 corregir = mín(duración, espera hasta el próximo refresco + 4 h de respuesta). Rebaja =

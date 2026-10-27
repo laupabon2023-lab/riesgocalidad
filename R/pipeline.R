@@ -24,13 +24,19 @@ leer_lotes <- function(ruta) {
 
 ejecutar_pipeline <- function(ruta_mediciones, ruta_lotes, dir_salida,
                               etiqueta = "SINTETICO", n_sim = sim$n_sim,
-                              semilla = sim$semilla, verbose = TRUE) {
+                              semilla = sim$semilla, verbose = TRUE,
+                              nivel = "logger", ruta_operacion = NULL) {
   say <- function(...) if (verbose) message(...)
   dir.create(dir_salida, recursive = TRUE, showWarnings = FALSE)
   guardar <- function(x, nombre) readr::write_csv(x, file.path(dir_salida, nombre))
 
   say("[OE1] Leyendo y clasificando mediciones")
-  m <- leer_mediciones(ruta_mediciones)
+  m <- preparar_nivel(leer_mediciones(ruta_mediciones), nivel)
+  resp <- respuesta_h
+  if (!is.null(ruta_operacion)) {
+    op <- leer_operacion(ruta_operacion); resp <- respuesta_media_h(op)
+    say("Tiempo de respuesta medio de la operación: ", round(resp, 1), " h")
+  }
   f <- filtrar_imposibles(m)
   m <- clasificar_lecturas(f$datos)
   hor <- a_horario(m, "evento_critico")
@@ -51,7 +57,7 @@ ejecutar_pipeline <- function(ruta_mediciones, ruta_lotes, dir_salida,
 
   say("[OE2] Cruce lote-bodega-fechas y severidad")
   lotes <- leer_lotes(ruta_lotes)
-  lotes_exp <- exposicion_por_lote(lotes, ep, esquemas$semanal)
+  lotes_exp <- exposicion_por_lote(lotes, ep, esquemas$semanal, resp)
   modelo <- ajustar_severidad(lotes_exp)
   guardar(as.data.frame(modelo), "oe2_modelo_severidad.csv")
   guardar(lotes_exp, "oe2_lotes_con_exposicion.csv")
@@ -62,7 +68,7 @@ ejecutar_pipeline <- function(ruta_mediciones, ruta_lotes, dir_salida,
     mutate(mu = n * 365 / pmax(dias_obs, 1))
   nb <- dispersion_nb(fm$n / fm$dias_obs * 30)  # conteo estandarizado a 30 días
   guardar(as.data.frame(nb), "oe2_dispersion_frecuencia.csv")
-  tot <- simular_perdida_anual(ep, lotes, ocup, freq, nb$size, modelo, n_sim = n_sim, semilla = semilla)
+  tot <- simular_perdida_anual(ep, lotes, ocup, freq, nb$size, modelo, n_sim = n_sim, semilla = semilla, respuesta = resp)
   riesgo <- resumen_riesgo(tot)
   guardar(riesgo, "oe2_oe3_riesgo_por_esquema.csv")
 
@@ -78,7 +84,7 @@ ejecutar_pipeline <- function(ruta_mediciones, ruta_lotes, dir_salida,
   guardar(bind_rows(sens), "oe3_sensibilidad.csv")
   say("[OE3] Escenarios de severidad (optimista / base / pesimista)")
   guardar(correr_escenarios(lotes_exp, ep, lotes, ocup, freq, nb$size,
-                            n_sim = min(n_sim, 3000), semilla = semilla),
+                            n_sim = min(n_sim, 3000), semilla = semilla, resp_base = resp),
           "oe3_escenarios.csv")
   say("Listo. Salidas en ", dir_salida)
   invisible(list(control = control, modelo = modelo, riesgo = riesgo, episodios = ep, tot = tot))

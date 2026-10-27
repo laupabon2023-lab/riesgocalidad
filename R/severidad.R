@@ -4,9 +4,9 @@ suppressPackageStartupMessages({ library(dplyr); library(purrr) })
 
 # Horas sin corregir acumuladas por lote bajo un esquema de actualización
 # (suma sobre los eventos de su bodega que empiezan durante la estancia).
-exposicion_por_lote <- function(lotes, episodios, esquema) {
+exposicion_por_lote <- function(lotes, episodios, esquema, respuesta = respuesta_h) {
   ep <- episodios |>
-    mutate(u = horas_sin_corregir(inicio, duracion_h, esquema))
+    mutate(u = horas_sin_corregir(inicio, duracion_h, esquema, respuesta))
   lotes |>
     mutate(horas_sin_corregir = pmap_dbl(
       list(sede_codigo, bodega, fecha_entrada, fecha_salida),

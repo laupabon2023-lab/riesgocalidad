@@ -49,3 +49,14 @@ modelo con datos reales.
 - `oe3_escenarios.csv` reporta tres escenarios de severidad (optimista, base, pesimista).
   CVaR 95 % semanal: 649, 1.315 y 2.041 M COP; la reducción pasando a tiempo real va de
   30 % (pesimista) a 83 % (optimista). Son supuestos, no estimaciones sobre Racafé.
+
+## Modo híbrido y límites conocidos
+- Se agregó `scripts/run_hibrido.R`: mediciones reales + lotes, rebajas y operación simulados
+  con un mecanismo distinto del modelo ajustado (dosis-respuesta no lineal, otras causas,
+  respuesta variable). El ajuste lineal ya no recupera el parámetro exacto (R² ≈ 0,8 en
+  la corrida local), que es más realista.
+- A nivel sede, un solo flujo de lotes por sede **subestima** la pérdida frente a varias
+  bodegas simultáneas. Se corrige al contar con el mapa logger → bodega.
+- En la corrida local, dos sedes (RH y RS) aparecen en estado crítico >90 % del tiempo,
+  casi todo por temperatura alta; probablemente sensores en zona de secado o mal ubicados.
+  Hay que confirmarlo con Racafé antes de interpretar esos eventos como riesgo de bodega.
