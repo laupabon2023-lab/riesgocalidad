@@ -15,7 +15,7 @@ Autores: Laura Pabón, Santiago García Roa. Lenguaje: R.
 - `data-raw/` generadores de los datos sintéticos (semilla fija).
 - `data/sintetico/` mediciones y lotes simulados. `data/real/` vacía (ignorada por Git).
 - `scripts/run_all.R` pipeline completo; `scripts/run_oe1_real.R` OE1 solo en local.
-- `tests/` pruebas `testthat`. `reports/informe_sintetico.html` informe reproducible.
+- `tests/` pruebas `testthat`. `reports/informe_sintetico.html` informe reproducible y `reports/informe_sintetico_visual.html` versión interactiva (plotly), generada con `reports/informe_visual.Rmd`.
 - `docs/AVANCE.md` avance por objetivo, con criterio explícito.
 
 ## Cómo correr

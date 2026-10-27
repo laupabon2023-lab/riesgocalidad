@@ -71,6 +71,9 @@ ejecutar_pipeline <- function(ruta_mediciones, ruta_lotes, dir_salida,
   tot <- simular_perdida_anual(ep, lotes, ocup, freq, nb$size, modelo, n_sim = n_sim, semilla = semilla, respuesta = resp)
   riesgo <- resumen_riesgo(tot)
   guardar(riesgo, "oe2_oe3_riesgo_por_esquema.csv")
+  # Muestra de 2.000 años simulados por esquema, para graficar la distribución.
+  guardar(as.data.frame(tot[round(seq(1, nrow(tot), length.out = min(2000, nrow(tot)))), , drop = FALSE]),
+          "oe2_oe3_muestra_perdida.csv")
 
   say("[OE3] Sensibilidad a supuestos")
   sens <- list()

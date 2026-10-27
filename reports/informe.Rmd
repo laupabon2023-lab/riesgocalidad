@@ -1,6 +1,6 @@
 ---
 title: "Costo del retraso en la disponibilidad de datos ambientales — Racafé"
-subtitle: "Informe reproducible (OE4). Resultados sobre DATOS SINTÉTICOS"
+subtitle: "Informe reproducible (OE4)"
 output:
   html_document:
     toc: true
@@ -17,10 +17,13 @@ ctl <- rd("oe1_control.csv")
 cop <- function(x) format(round(x / 1e6), big.mark = ".", decimal.mark = ",")
 ```
 
-> **Aviso.** Las cifras de este informe se calculan sobre mediciones y lotes
-> **sintéticos** (etiqueta: `r ctl$etiqueta`). Demuestran que el método funciona de punta a punta;
-> **no son hallazgos sobre Racafé**. Con datos reales el mismo código se ejecuta en local
-> (ver README) y sus salidas no se publican.
+```{r aviso, results="asis"}
+if (grepl("^SINTETICO", ctl$etiqueta)) {
+  cat("> **Aviso.** Las cifras de este informe se calculan sobre mediciones y lotes **sintéticos** (etiqueta: ", ctl$etiqueta, "). Demuestran que el método funciona de punta a punta; **no son hallazgos sobre Racafé**. Con datos reales el mismo código se ejecuta en local (ver README) y sus salidas no se publican.\n", sep = "")
+} else {
+  cat("> **Aviso. USO INTERNO, NO PUBLICAR.** Mediciones **reales** de Racafé con lotes, rebajas y operación **simulados** (etiqueta: ", ctl$etiqueta, "). Las cifras de severidad y pérdida dependen de supuestos, no son hallazgos sobre Racafé.\n", sep = "")
+}
+```
 
 ## OE1. Frecuencia y duración de alarmas
 

@@ -1,0 +1,266 @@
+---
+pagetitle: "Costo del retraso en la disponibilidad de datos ambientales"
+output:
+  html_document:
+    theme: cosmo
+    toc: false
+    self_contained: true
+    code_folding: none
+params:
+  salida: "../outputs/sintetico"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(dplyr); library(readr); library(plotly); library(DT); library(htmltools)
+rd <- function(f) read_csv(file.path(params$salida, f), show_col_types = FALSE)
+existe <- function(f) file.exists(file.path(params$salida, f))
+cop <- function(x) format(round(x / 1e6), big.mark = ".", decimal.mark = ",")
+pct <- function(x, d = 1) paste0(format(round(100 * x, d), decimal.mark = ","), " %")
+ctl <- rd("oe1_control.csv")
+es_sint <- grepl("^SINTETICO", ctl$etiqueta)
+riesgo <- rd("oe2_oe3_riesgo_por_esquema.csv")
+mod <- rd("oe2_modelo_severidad.csv")
+alar <- rd("oe1_alarmas_por_sede.csv")
+dur <- rd("oe1_duracion_por_bodega.csv")
+frec <- rd("oe1_frecuencia_mensual.csv")
+lotes <- rd("oe2_lotes_con_exposicion.csv")
+esc <- rd("oe3_escenarios.csv")
+sens <- rd("oe3_sensibilidad.csv")
+col <- c(semanal = "#9B2C20", diaria = "#C98A2B", tiempo_real = "#2E7D4F")
+lab <- c(semanal = "Semanal", diaria = "Diaria", tiempo_real = "Tiempo real")
+fuente <- list(family = "IBM Plex Sans, Segoe UI, Arial, sans-serif", color = "#14213D")
+tema <- function(p, ...) layout(p, autosize = TRUE, font = fuente, paper_bgcolor = "rgba(0,0,0,0)",
+                                plot_bgcolor = "rgba(0,0,0,0)", margin = list(l = 60, r = 20, t = 30, b = 50), ...) |>
+  config(displaylogo = FALSE, responsive = TRUE, modeBarButtonsToRemove = c("lasso2d", "select2d"))
+```
+
+```{css}
+body { background:#F6F3EC; color:#14213D; font-family:"IBM Plex Sans","Segoe UI",Arial,sans-serif; font-size:16px; }
+.main-container { max-width:1280px; }
+.plotly.html-widget { width:100% !important; }
+.js-plotly-plot, .plot-container { width:100% !important; }
+h2 { font-family:Georgia,"Source Serif 4",serif; font-weight:700; color:#14213D; border-bottom:3px solid #C98A2B; padding-bottom:6px; margin-top:48px; }
+h3 { font-family:Georgia,serif; color:#14213D; margin-top:28px; }
+.hero { background:linear-gradient(135deg,#14213D 0%,#24396B 100%); color:#F6F3EC; padding:44px 48px; border-radius:18px; margin:24px 0 18px; }
+.hero h1 { font-family:Georgia,"Source Serif 4",serif; font-size:38px; font-weight:700; margin:0 0 10px; line-height:1.15; }
+.hero p { color:#DCE3F2; margin:0; font-size:18px; }
+.badge-et { display:inline-block; background:#E8C547; color:#14213D; font-weight:600; padding:4px 12px; border-radius:20px; font-size:13px; margin-bottom:14px; letter-spacing:1px; }
+.aviso { border-radius:12px; padding:14px 20px; margin:0 0 24px; font-size:15px; }
+.aviso.sint { background:#E7F0F7; border-left:6px solid #2F6F9A; }
+.aviso.hib { background:#FBEDEA; border-left:6px solid #9B2C20; }
+.nav { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 26px; position:sticky; top:0; z-index:50; background:#F6F3EC; padding:10px 0; }
+.nav a { background:#fff; border:1px solid #E3DDCC; border-radius:20px; padding:6px 16px; color:#14213D; font-weight:600; font-size:14px; text-decoration:none; }
+.nav a:hover { background:#14213D; color:#E8C547; }
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin:8px 0 12px; }
+.kpi { background:#fff; border:1px solid #E3DDCC; border-radius:14px; padding:18px 16px; box-shadow:0 1px 2px rgba(20,33,61,.06); }
+.kpi .v { font-family:Georgia,serif; font-size:32px; font-weight:700; line-height:1.1; }
+.kpi .l { font-size:13px; color:#5B6478; margin-top:6px; text-transform:uppercase; letter-spacing:.6px; }
+.kpi.alt { background:#14213D; border-color:#14213D; } .kpi.alt .v { color:#E8C547; } .kpi.alt .l { color:#9FB0CF; }
+.nota { background:#fff; border:1px solid #E3DDCC; border-radius:12px; padding:14px 18px; color:#4A5568; font-size:15px; }
+.dataTables_wrapper { font-size:14px; }
+#TOC { border-radius:12px; border:1px solid #E3DDCC; background:#fff; }
+.list-group-item.active, .list-group-item.active:hover { background:#14213D; border-color:#14213D; }
+```
+
+```{r hero, results="asis"}
+cat('<div class="hero"><span class="badge-et">', ctl$etiqueta, '</span><h1>Costo del retraso en la disponibilidad de datos ambientales</h1><p>Pérdida agregada por rebajas, VaR y CVaR al 95 % con actualización semanal, diaria y en tiempo real. Racafé · Consultoría Estadística, Universidad Santo Tomás.</p></div>', sep = "")
+if (es_sint) {
+  cat('<div class="aviso sint"><b>Datos sintéticos.</b> Las cifras demuestran que el método funciona de punta a punta; no son hallazgos sobre Racafé.</div>')
+} else {
+  cat('<div class="aviso hib"><b>USO INTERNO, NO PUBLICAR.</b> Mediciones reales de Racafé con lotes, rebajas y operación simulados. Las cifras de severidad y pérdida dependen de supuestos y no son hallazgos sobre Racafé.</div>')
+}
+cat('<div class="nav"><a href="#oe1">OE1 Alarmas</a><a href="#oe2">OE2 Severidad y pérdida</a><a href="#oe3">OE3 Esquemas</a><a href="#supuestos">Supuestos</a></div>')
+sem <- riesgo[riesgo$esquema == "semanal", ]; tr <- riesgo[riesgo$esquema == "tiempo_real", ]
+k <- function(v, l, alt = FALSE) paste0('<div class="kpi', if (alt) ' alt', '"><div class="v">', v, '</div><div class="l">', l, '</div></div>')
+cat('<div class="kpis">',
+    k(format(ctl$n_lecturas, big.mark = "."), "lecturas analizadas"),
+    k(ctl$n_bodegas, "unidades de análisis"),
+    k(pct(ctl$pct_evento_critico, 1), "horas en evento crítico"),
+    k(format(ctl$n_episodios, big.mark = "."), "episodios críticos"),
+    k(paste0(cop(sem$CVaR), " M"), "CVaR 95 % semanal (COP/año)", TRUE),
+    k(paste0("−", round(tr$reduccion_CVaR_pct), " %"), "CVaR con tiempo real", TRUE),
+    '</div>', sep = "")
+```
+
+## OE1. Frecuencia y duración de alarmas {#oe1}
+
+Un **evento crítico** es una hora con GPP mayor a 100, temperatura mayor a 28 °C o riesgo de condensación (temperatura a menos de 2 °C del punto de rocío). Con la definición amplia (cualquier lectura fuera de la zona segura) `r pct(ctl$pct_alarma_amplia, 0)` de las horas están en alarma y no hay eventos separables, por eso el modelo usa eventos críticos.
+
+### Horas en evento crítico por unidad
+
+```{r}
+a <- alar |> arrange(pct_evento_critico)
+a$sede_codigo <- factor(a$sede_codigo, a$sede_codigo)
+plot_ly(a, y = ~sede_codigo, x = ~100 * pct_evento_critico, type = "bar", orientation = "h",
+        marker = list(color = "#C98A2B"),
+        text = ~paste0(round(100 * pct_evento_critico, 1), " %"), textposition = "outside",
+        hovertemplate = "%{y}: %{x:.1f} % de las horas<extra></extra>") |>
+  tema(xaxis = list(title = "% de horas en evento crítico", ticksuffix = " %", gridcolor = "#E3DDCC"),
+       yaxis = list(title = ""), height = 380)
+```
+
+### Qué causa los eventos: humedad, temperatura y condensación
+
+```{r}
+b <- alar |> arrange(desc(pct_evento_critico))
+b$sede_codigo <- factor(b$sede_codigo, b$sede_codigo)
+plot_ly(b, x = ~sede_codigo, y = ~100 * pct_riesgo_humedad, name = "Humedad (GPP o HR fuera de rango)", type = "bar", marker = list(color = "#2F6F9A")) |>
+  add_trace(y = ~100 * pct_temp_alta, name = "Temperatura alta", marker = list(color = "#9B2C20")) |>
+  add_trace(y = ~100 * pct_condensacion, name = "Condensación", marker = list(color = "#2E7D4F")) |>
+  tema(barmode = "group", yaxis = list(title = "% de lecturas", ticksuffix = " %", gridcolor = "#E3DDCC"),
+       xaxis = list(title = ""), legend = list(orientation = "h", y = -0.2), height = 420)
+```
+
+```{r, results="asis"}
+cond <- max(alar$pct_condensacion)
+cat('<div class="nota">La condensación casi no aparece: su máximo es ', pct(cond, 2), ' de las lecturas de una unidad. ',
+    if (es_sint) 'En la simulación es un límite del generador, no un hallazgo; conviene recalibrarlo si se quiere probar esa rama del modelo.' else 'Con los umbrales actuales, casi todo el riesgo viene de humedad y temperatura.',
+    '</div>', sep = "")
+```
+
+### Frecuencia mensual de eventos
+
+```{r}
+f <- frec |> mutate(tasa = n / pmax(dias_obs, 1) * 30) |> group_by(sede_codigo, mes) |> summarise(tasa = sum(tasa), .groups = "drop")
+mat <- tidyr::pivot_wider(f, names_from = mes, values_from = tasa)
+z <- as.matrix(mat[, -1]); rownames(z) <- mat$sede_codigo
+plot_ly(x = colnames(z), y = rownames(z), z = z, type = "heatmap",
+        colorscale = list(c(0, "#F6F3EC"), c(0.5, "#E8C547"), c(1, "#9B2C20")),
+        hovertemplate = "%{y} · %{x}<br>%{z:.1f} eventos por 30 días<extra></extra>",
+        colorbar = list(title = "Eventos<br>por 30 d")) |>
+  tema(xaxis = list(title = ""), yaxis = list(title = "", autorange = "reversed"), height = 380)
+```
+
+### Duración de los eventos
+
+```{r}
+d <- dur |> mutate(unidad = ifelse(sede_codigo == logger, sede_codigo, logger)) |> arrange(dur_mediana_h)
+d$sede_codigo <- factor(d$unidad, unique(d$unidad))
+plot_ly(d) |>
+  add_segments(x = ~dur_mediana_h, xend = ~dur_p90_h, y = ~sede_codigo, yend = ~sede_codigo,
+               line = list(color = "#9FB0CF", width = 5), showlegend = FALSE, hoverinfo = "none") |>
+  add_markers(x = ~dur_mediana_h, y = ~sede_codigo, name = "Mediana", marker = list(color = "#2F6F9A", size = 13),
+              hovertemplate = "%{y}: mediana %{x} h<extra></extra>") |>
+  add_markers(x = ~dur_p90_h, y = ~sede_codigo, name = "Percentil 90", marker = list(color = "#9B2C20", size = 13),
+              hovertemplate = "%{y}: p90 %{x} h<extra></extra>") |>
+  tema(xaxis = list(title = "Horas por evento", gridcolor = "#E3DDCC"), yaxis = list(title = ""),
+       legend = list(orientation = "h", y = -0.2), height = 380)
+```
+
+## OE2. Severidad y pérdida agregada {#oe2}
+
+### Horas sin corregir frente a rebaja por lote
+
+```{r}
+x <- seq(0, max(lotes$horas_sin_corregir, na.rm = TRUE), length.out = 100)
+curva <- tibble(x = x, y = pmin(mod$tope, mod$k * x^mod$beta))
+lotes$causa <- if ("causa_rebaja" %in% names(lotes)) lotes$causa_rebaja else "ambiental"
+p <- plot_ly()
+paleta <- c(ambiental = "#2F6F9A", mixta = "#C98A2B", otras = "#9B2C20", ninguna = "#9FB0CF")
+for (cz in intersect(names(paleta), unique(lotes$causa))) {
+  s <- lotes[lotes$causa == cz, ]
+  p <- add_markers(p, data = s, x = ~horas_sin_corregir, y = ~100 * pct_rebaja, name = cz,
+                   marker = list(color = paleta[[cz]], size = 8, opacity = .75),
+                   text = ~paste0(lote_id, " · ", sede_codigo, "<br>", horas_sin_corregir, " h sin corregir<br>rebaja ", round(100 * pct_rebaja, 1), " %"),
+                   hoverinfo = "text")
+}
+p |> add_lines(data = curva, x = ~x, y = ~100 * y, name = "Modelo ajustado", line = list(color = "#14213D", width = 3)) |>
+  tema(xaxis = list(title = "Horas sin corregir acumuladas en el lote (esquema semanal)", gridcolor = "#E3DDCC"),
+       yaxis = list(title = "Rebaja del lote", ticksuffix = " %", gridcolor = "#E3DDCC"),
+       legend = list(orientation = "h", y = -0.25), height = 460)
+```
+
+```{r, results="asis"}
+cat('<div class="kpis">', k(format(mod$k, digits = 3, scientific = FALSE, decimal.mark = ","), "k estimado (fracción por hora)"),
+    k(format(round(mod$r2, 2), decimal.mark = ","), "R² del ajuste"), k(paste0(mod$n, " de ", mod$n_total), "lotes con exposición"),
+    k(pct(mod$tope, 0), "tope de rebaja"), '</div>', sep = "")
+```
+
+### Distribución de la pérdida anual
+
+```{r, eval = existe("oe2_oe3_muestra_perdida.csv")}
+m <- rd("oe2_oe3_muestra_perdida.csv")
+p <- plot_ly()
+for (e in c("semanal", "diaria", "tiempo_real")) {
+  dn <- density(m[[e]] / 1e6, adjust = 1.2)
+  r <- riesgo[riesgo$esquema == e, ]
+  p <- add_trace(p, x = dn$x, y = dn$y, type = "scatter", mode = "lines", fill = "tozeroy", name = lab[[e]],
+                 line = list(color = col[[e]], width = 2.5), fillcolor = paste0(col[[e]], "33"),
+                 hovertemplate = paste0(lab[[e]], ": %{x:.0f} M COP<extra></extra>"))
+  p <- add_segments(p, x = r$CVaR / 1e6, xend = r$CVaR / 1e6, y = 0, yend = max(dn$y) * 0.55,
+                    line = list(color = col[[e]], dash = "dash", width = 2), showlegend = FALSE,
+                    hovertemplate = paste0("CVaR 95 % ", lab[[e]], ": ", cop(r$CVaR), " M<extra></extra>"))
+}
+tema(p, xaxis = list(title = "Pérdida anual por rebajas (millones de COP). Línea discontinua: CVaR 95 %", gridcolor = "#E3DDCC"),
+     yaxis = list(title = "Densidad", showticklabels = FALSE), legend = list(orientation = "h", y = -0.25), height = 440)
+```
+
+## OE3. Comparación de esquemas de actualización {#oe3}
+
+### VaR y CVaR por esquema
+
+```{r}
+r <- riesgo |> mutate(lab = lab[esquema]); r$lab <- factor(r$lab, lab)
+plot_ly(r, x = ~lab, y = ~VaR / 1e6, name = "VaR 95 %", type = "bar", marker = list(color = "#9FB0CF"),
+        hovertemplate = "VaR: %{y:.0f} M<extra></extra>") |>
+  add_trace(y = ~CVaR / 1e6, name = "CVaR 95 %", marker = list(color = "#14213D"),
+            error_y = list(type = "data", symmetric = FALSE, array = ~(CVaR_ic_sup - CVaR) / 1e6, arrayminus = ~(CVaR - CVaR_ic_inf) / 1e6, color = "#C98A2B"),
+            hovertemplate = "CVaR: %{y:.0f} M<extra></extra>") |>
+  tema(barmode = "group", xaxis = list(title = ""), yaxis = list(title = "Millones de COP por año", gridcolor = "#E3DDCC"),
+       legend = list(orientation = "h", y = -0.15), height = 400)
+```
+
+```{r}
+riesgo |> transmute(Esquema = lab[esquema], `Media (M COP)` = cop(media), `VaR 95 % (M COP)` = cop(VaR),
+                    `CVaR 95 % (M COP)` = cop(CVaR), `Reducción de CVaR` = paste0(format(round(reduccion_CVaR_pct, 1), decimal.mark = ","), " %")) |>
+  datatable(rownames = FALSE, options = list(dom = "t"))
+```
+
+### Escenarios de severidad
+
+```{r}
+e <- esc |> mutate(esq = factor(lab[esquema], lab), escenario = factor(escenario, c("optimista", "base", "pesimista")))
+plot_ly(e, x = ~escenario, y = ~CVaR / 1e6, color = ~esq, colors = unname(col[c("semanal", "diaria", "tiempo_real")]),
+        type = "bar", text = ~paste0(cop(CVaR), " M"), textposition = "outside",
+        hovertemplate = "%{x} · %{fullData.name}<br>CVaR %{y:.0f} M<extra></extra>") |>
+  tema(barmode = "group", xaxis = list(title = "Escenario de supuestos"), yaxis = list(title = "CVaR 95 % (millones de COP)", gridcolor = "#E3DDCC"),
+       legend = list(orientation = "h", y = -0.2), height = 430)
+```
+
+```{r}
+esc |> filter(esquema != "semanal") |>
+  transmute(Escenario = escenario, Esquema = lab[esquema], `Rebaja ×` = mult_k, `Tope` = paste0(100 * tope, " %"),
+            `Respuesta (h)` = round(respuesta_h, 1), `Reducción de CVaR` = paste0(format(round(reduccion_CVaR_pct, 1), decimal.mark = ","), " %")) |>
+  datatable(rownames = FALSE, options = list(dom = "t", pageLength = 6))
+```
+
+### Sensibilidad: forma de la severidad y tiempo de respuesta
+
+```{r}
+s <- sens |> filter(esquema == "tiempo_real")
+s$fila <- paste0("β = ", s$beta); s$columna <- paste0(s$respuesta_h, " h")
+plot_ly(s, x = ~columna, y = ~fila, z = ~reduccion_CVaR_pct, type = "heatmap",
+        colorscale = list(c(0, "#F6F3EC"), c(1, "#2E7D4F")), zmin = 0, zmax = 100,
+        text = ~paste0(round(reduccion_CVaR_pct), " %"), texttemplate = "%{text}", textfont = list(size = 18),
+        hovertemplate = "Respuesta %{x} · %{y}<br>Reducción de CVaR: %{z:.1f} %<extra></extra>", colorbar = list(title = "Reducción<br>CVaR %")) |>
+  tema(xaxis = list(title = "Tiempo de respuesta"), yaxis = list(title = "Forma de la severidad", autorange = "reversed"), height = 300)
+```
+
+La conclusión cualitativa (menos latencia implica menos riesgo de cola) se sostiene en todos los supuestos; la **magnitud** depende del tiempo de respuesta y de la forma de la severidad, que solo los datos reales de rebajas pueden fijar.
+
+## Supuestos {#supuestos}
+
+```{r}
+tibble::tribble(
+  ~Supuesto, ~Valor,
+  "Evento crítico", "GPP > 100, temperatura > 28 °C o (T − Td) ≤ 2 °C",
+  "Horas sin corregir", "mín(duración, espera hasta el refresco + respuesta)",
+  "Refresco semanal / diario", "Lunes 08:00 / todos los días 08:00",
+  "Tiempo real", "Latencia de 1 h",
+  "Rebaja", "mín(25 %, k × horas sin corregir)",
+  "Simulación", "10.000 años, semilla fija, números aleatorios comunes entre esquemas"
+) |> datatable(rownames = FALSE, options = list(dom = "t", pageLength = 10))
+```
+
+<p style="color:#5B6478;font-size:13px;margin-top:40px">Informe reproducible: <code>rmarkdown::render("reports/informe_visual.Rmd")</code>. Código y supuestos en <code>R/</code> y <code>R/00_config.R</code>.</p>
